@@ -36,6 +36,9 @@ LOCAL uint8_t status[4];
 
 #define HTTP_HEADER(CONTENT_TYPE) "HTTP/1.1 200 OK\r\n" \
                                   "Content-Type: " CONTENT_TYPE "\r\n" \
+                                  "Cache-Control: no-cache, no-store, must-revalidate\r\n" \
+                                  "Pragma: no-cache\r\n" \
+                                  "Expires: 0\r\n" \
                                  "Content-Length: %d\r\n" \
                                  "Server: Unspecified, UPnP/1.0, Unspecified\r\n" \
                                  "connection: close\r\n" \
