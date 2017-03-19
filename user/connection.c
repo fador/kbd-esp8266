@@ -68,7 +68,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       
       if(value > 0 && value < 5) {        
         
-        status[value] = 1;
+        status[value-1] = 1;
         
         os_sprintf(message, "Value set");
       } else {
@@ -88,7 +88,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       
       if(value > 0 && value < 5) {        
         
-        status[value] = 0;
+        status[value-1] = 0;
         
         os_sprintf(message, "Value cleared");
       } else {
