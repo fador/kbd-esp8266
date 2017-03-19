@@ -48,11 +48,9 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
 {
     struct espconn *ptrespconn = arg;
     char buffer[BUFFERLEN];
-    
+    char message[100];
     // Return settings when requesting setup.xml
     if(os_strstr(data,"set.php")) {
-      
-      char message[100];
       
       os_sprintf(message, "Test response");
       
@@ -62,7 +60,44 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
                   
       espconn_send(ptrespconn, buffer, os_strlen(buffer));
       return;    
-            
+    } else if(os_strstr(data, "set/")) {   
+      char* datapos = (char*)os_strstr(data, "set/");
+      datapos += 4;
+      
+      char value = datapos[0]-'0';
+      
+      if(value > 0 && value < 5) {        
+        
+        status[value] = 1;
+        
+        os_sprintf(message, "Value set");
+      } else {
+        os_sprintf(message, "Value out of range");
+      }
+      
+      // Append the payload to the HTTP headers.
+      os_sprintf(buffer, HTTP_HEADER("text/html")
+                         "%s", os_strlen(message), message); 
+                  
+      espconn_send(ptrespconn, buffer, os_strlen(buffer));
+    } else if(os_strstr(data, "clear/")) {   
+      char* datapos = (char*)os_strstr(data, "clear/");
+      datapos += 6;
+      
+      char value = datapos[0]-'0';
+      
+      if(value > 0 && value < 5) {        
+        
+        status[value] = 0;
+        
+        os_sprintf(message, "Value cleared");
+      } else {
+        os_sprintf(message, "Value out of range");
+      }
+      
+      // Append the payload to the HTTP headers.
+      os_sprintf(buffer, HTTP_HEADER("text/html")
+                         "%s", os_strlen(message), message); 
     } else {
       os_sprintf(buffer, HTTP_HEADER("text/plain charset=\"utf-8\"")
                          "ok", 2);                        
