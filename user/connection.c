@@ -22,12 +22,16 @@
 #include <osapi.h>
 #include "connection.h"
 #include "configure.h"
+#include "ws2812_lib.h"
 
+os_timer_t update_light_timer;
 
 LOCAL ip_addr_t ip;
 
 LOCAL struct espconn conn2;
 LOCAL esp_tcp tcp1;
+
+LOCAL uint8_t status[4];
 
 
 #define HTTP_HEADER(CONTENT_TYPE) "HTTP/1.1 200 OK\r\n" \
@@ -74,6 +78,39 @@ LOCAL void ICACHE_FLASH_ATTR webserver_listen(void *arg)
     espconn_regist_recvcb(pesp_conn, webserver_recv);
 }
 
+
+void ICACHE_FLASH_ATTR update_light(void)
+{
+  static int period = 0;
+  int i = 0;
+  uint8_t ledPos[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
+  uint8_t r[16];
+  uint8_t g[16];
+  uint8_t b[16];
+  
+  // Precalc values
+  for(i = 0; i < 16; i++) {
+    if(status[i>>2]) {
+      r[i] = ledPos[period>>3] == i%4 ? 128:0;
+      g[i] = 0;
+    } else {
+      g[i] = ledPos[period>>3] == i%4 ? 128:0;
+      r[i] = 0;
+    }
+    b[i] = 0;
+  }
+  
+  // Disable interrupts while sending, timing critical step
+  ets_intr_lock();
+  ws2812_reset();
+  for(i = 0; i < 16; i++) {
+    ws2812_send_pixel(r[i], g[i], b[i]);
+  }
+  ets_intr_unlock();
+  period ++;
+  if(period > 63) period = 0;
+}
+
 void ICACHE_FLASH_ATTR serverInit() {
   
   os_printf("Free heap: %d\n", system_get_free_heap_size());
@@ -88,4 +125,11 @@ void ICACHE_FLASH_ATTR serverInit() {
   espconn_regist_connectcb(&conn2, webserver_listen);
   espconn_accept(&conn2);
 
+  os_timer_disarm(&update_light_timer);
+  os_timer_setfn(&update_light_timer, (os_timer_func_t *)update_light, NULL);
+  os_timer_arm(&update_light_timer, 20, 1);
+  
+  status[0] = status[1] = status[2] = status[3] = 0;
+  
+  ws2812_init();
 }
