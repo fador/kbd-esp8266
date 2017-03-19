@@ -46,60 +46,19 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
     char buffer[BUFFERLEN];
     
     // Return settings when requesting setup.xml
-    if(os_strstr(data,"setup.xml")) {
+    if(os_strstr(data,"set.php")) {
       
-      char xml_message[500];
+      char message[100];
       
-      // Define the payload part
-      const char setup_xml[] = "<?xml version=\"1.0\"?>\r\n"
-                        "<root>\r\n"
-                        "  <device>\r\n"
-                        "    <deviceType>urn:FadorTest:device:controllee:1</deviceType>\r\n"
-                        "    <friendlyName>%s</friendlyName>\r\n"
-                        "    <manufacturer>Belkin International Inc.</manufacturer>\r\n"
-                        "    <modelName>Emulated Socket</modelName>\r\n"
-                        "    <modelNumber>3.1415</modelNumber>\r\n"
-                        "    <UDN>uuid:Socket-1_0-%s</UDN>\r\n"
-                        "  </device>\r\n"
-                        "</root>";
-                        
-      // Fill in the payload with the correct settings, we need to get the size of this later
-      os_sprintf(xml_message,setup_xml, DEVICE_NAME, SERIAL_NUMBER);
+      os_sprintf(message, "Test response");
       
       // Append the payload to the HTTP headers.
-      os_sprintf(buffer, HTTP_HEADER("text/xml")
-                         "%s", os_strlen(xml_message), xml_message); 
+      os_sprintf(buffer, HTTP_HEADER("text/html")
+                         "%s", os_strlen(message), message); 
                   
       espconn_send(ptrespconn, buffer, os_strlen(buffer));
       return;    
-      
-    } else if(os_strstr(data, "basicevent1")) { // Getting basicevent1, turning the switch on/off
-      
-      char message[500];
-      
-      // Simply search for the binarystate, if it's found, we enable the "switch"
-      if(os_strstr(data, "<BinaryState>1</BinaryState>")) {
-        os_sprintf(message, returnState, 1);
-        os_printf("Turning on!\n");
-        
-        /* ToDo:
-          DO STUFF WHEN ENABLING THE DEVICE
-        */
-        
-      } else {
-        os_sprintf(message, returnState, 0);
-        os_printf("Turning off!\n");
-        
-        /* ToDo:
-          DO STUFF WHEN DISABLING THE DEVICE
-        */
-      }
-      
-      
-      os_sprintf(buffer, HTTP_HEADER("text/plain charset=\"utf-8\"")
-                         "%s", os_strlen(message), message);                        
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-      
+            
     } else {
       os_sprintf(buffer, HTTP_HEADER("text/plain charset=\"utf-8\"")
                          "ok", 2);                        
