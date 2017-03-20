@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2016, Marko Viitanen (Fador)
+  Copyright (c) 2017, Marko Viitanen (Fador)
 
   Permission to use, copy, modify, and/or distribute this software for any purpose 
   with or without fee is hereby granted, provided that the above copyright notice 
@@ -15,10 +15,7 @@
 
 */
 
-#pragma once
+#include "configure.h"
 
-#include <espconn.h>
-
-void network_init();
-void network_update_credential(char* ssid, char* password);
-
+char* WLAN_SSID_LIST[WLAN_CREDENTIALS] = { "SSID1", "SSID2", "SSID3" };
+char* WLAN_PASSWD_LIST[WLAN_CREDENTIALS] = { "PASS1", "PASS2", "PASS3" };

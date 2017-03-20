@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2016, Marko Viitanen (Fador)
+  Copyright (c) 2017, Marko Viitanen (Fador)
 
   Permission to use, copy, modify, and/or distribute this software for any purpose 
   with or without fee is hereby granted, provided that the above copyright notice 
@@ -18,5 +18,7 @@
 #pragma once
 
 #define BUFFERLEN 1024
-#define WLAN_SSID "WLAN_NAME"
-#define WLAN_PASSWD "WLAN_PASSWORD"
+
+#define WLAN_CREDENTIALS 3
+extern char* WLAN_SSID_LIST[WLAN_CREDENTIALS];
+extern  char* WLAN_PASSWD_LIST[WLAN_CREDENTIALS];

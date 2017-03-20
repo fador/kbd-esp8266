@@ -26,6 +26,7 @@
 #include "io.h"
 #include "user_network.h"
 #include "configure.h"
+#include "ws2812_lib.h"
 
 
 /******************************************************************************
@@ -75,20 +76,25 @@ user_rf_cal_sector_set(void)
 
 void user_init(void)
 {
-  char *ssid = WLAN_SSID;
-  char *password = WLAN_PASSWD;
-  struct station_config stationConf;
+  int i;
 
   system_timer_reinit();
-  
-  os_memcpy(&stationConf.ssid, ssid, 32);
-  os_memcpy(&stationConf.password, password, 32);
   uart_init(BIT_RATE_115200, BIT_RATE_115200);  
-  wifi_set_opmode( STATION_MODE );
-  wifi_set_phy_mode(PHY_MODE_11N);
-  wifi_station_set_config(&stationConf);
-  wifi_station_connect();
   
+  // Use first credentials from the list
+  network_update_credential(WLAN_SSID_LIST[0], WLAN_PASSWD_LIST[0]);
+  
+  // Init the lib here, so we can use it anywhere
+  ws2812_init();
+  
+  // Indicate that we have successfully booted, light all the leds
+  ets_intr_lock();
+  ws2812_reset();
+  for(i = 0; i < 16; i++) {
+    ws2812_send_pixel(10, 10, 10);
+  }
+  ets_intr_unlock();
+    
   os_printf("\nStart network init SDK version:%s\n", system_get_sdk_version());
   
   network_init();

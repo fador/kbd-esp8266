@@ -168,6 +168,5 @@ void ICACHE_FLASH_ATTR serverInit() {
   os_timer_arm(&update_light_timer, 20, 1);
   
   status[0] = status[1] = status[2] = status[3] = 0;
-  
-  ws2812_init();
+
 }
