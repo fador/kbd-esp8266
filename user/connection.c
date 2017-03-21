@@ -31,7 +31,29 @@ LOCAL ip_addr_t ip;
 LOCAL struct espconn conn2;
 LOCAL esp_tcp tcp1;
 
-LOCAL uint8_t status[4];
+#define MAX_STATES 4
+
+typedef struct {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+} ws2812_pixel;
+
+typedef struct {
+  uint8_t states;
+  uint8_t current_state;
+  uint8_t current_timer;
+  ws2812_pixel current_pixel;
+  ws2812_pixel pixel[MAX_STATES];
+  uint8_t state_time[MAX_STATES];  
+  
+} ws2812_pixel_states;
+
+typedef struct {
+  ws2812_pixel_states n[WS2812_LED_COUNT]; 
+} ws2812_pixel_array;
+
+ws2812_pixel_array* pixels;
 
 
 #define HTTP_HEADER(CONTENT_TYPE) "HTTP/1.1 200 OK\r\n" \
@@ -45,6 +67,40 @@ LOCAL uint8_t status[4];
                                  "Last-Modified: Sat, 01 Jan 2000 00:00:00 GMT\r\n" \
                                  "\r\n"
                                  
+                            
+                            
+static uint8_t readValue(char* buf, uint8_t* in_offset) {
+  uint8_t value = 0;
+  uint8_t offset = 0;
+  while((uint8_t)buf[offset]-'0' < 10) {
+    value *= 10;
+    value += buf[offset]-'0';
+    offset++;
+  }
+  
+  *in_offset += offset;
+  
+  return value;
+}
+
+static uint8_t setLedValue(uint8_t idx, uint8_t state, uint8_t r, uint8_t g, uint8_t b, uint8_t delay)
+{
+ 
+  ws2812_pixel_states *pix = &pixels->n[idx];
+  if(pix->states <= state) pix->states = state+1;
+  
+  pix->current_state = 0;
+  pix->current_timer = 0;
+  
+  pix->pixel[state].r = r;
+  pix->pixel[state].g = g;
+  pix->pixel[state].b = b;
+  pix->state_time[state] = delay;  
+  
+  pix->current_pixel = pix->pixel[0];
+  
+  return 1;
+}
                             
 
 LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned short length)
@@ -65,17 +121,53 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       return;    
     } else if(os_strstr(data, "set/")) {   
       char* datapos = (char*)os_strstr(data, "set/");
+      uint8_t offset = 0;
       datapos += 4;
       
-      char value = datapos[0]-'0';
+      uint8_t led_idx = readValue(&datapos[offset], &offset);
+      uint8_t led_state = 0;
+      uint8_t led_r = 0;
+      uint8_t led_g = 0;
+      uint8_t led_b = 0;
+      uint8_t led_delay = 0;
+      uint8_t error = 1;
       
-      if(value > 0 && value < 5) {        
-        
-        status[value-1] = 1;
-        
-        os_sprintf(message, "Value set");
+      led_idx--;
+      
+      // Verify that the led index exists
+      if(led_idx < WS2812_LED_COUNT) {        
+
+        if(datapos[offset] == '/') {
+          offset++;
+          led_state = readValue(&datapos[offset], &offset);
+          if(datapos[offset] == '/') {
+            offset++;
+            led_r = readValue(&datapos[offset], &offset);
+            if(datapos[offset] == '/') {
+              offset++;
+              led_g = readValue(&datapos[offset], &offset);
+              if(datapos[offset] == '/') {
+                offset++;
+                led_b = readValue(&datapos[offset], &offset);
+                 if(datapos[offset] == '/') {
+                  offset++;
+                  led_delay = readValue(&datapos[offset], &offset);
+                  if(led_delay != 0) {
+                    setLedValue(led_idx,led_state, led_r,led_g,led_b,led_delay);
+                    error = 0;
+                  }
+                }
+              }
+            }
+          }
+        }
+        if(error) {
+          os_sprintf(message, "Expecting /set/<id>/<state>/<r>/<g>/<b>/<delay>");
+        } else {
+          os_sprintf(message, "Value set ID: %d state %d R %d G %d B %d Delay %d", led_idx, led_state, led_r, led_g, led_b, led_delay);
+        }
       } else {
-        os_sprintf(message, "Value out of range");
+        os_sprintf(message, "ID value out of range");
       }
       
       // Append the payload to the HTTP headers.
@@ -89,9 +181,11 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       
       char value = datapos[0]-'0';
       
-      if(value > 0 && value < 5) {        
+      value--;
+      
+      if(value < WS2812_LED_COUNT) {        
         
-        status[value-1] = 0;
+        os_memset(pixels->n[value],0, sizeof(ws2812_pixel_states));
         
         os_sprintf(message, "Value cleared");
       } else {
@@ -120,34 +214,55 @@ LOCAL void ICACHE_FLASH_ATTR webserver_listen(void *arg)
 
 void ICACHE_FLASH_ATTR update_light(void)
 {
-  static int period = 0;
-  int i = 0;
-  uint8_t ledPos[8] = { 0, 1, 2, 3, 3, 2, 1, 0 };
-  uint8_t r[16];
-  uint8_t g[16];
-  uint8_t b[16];
-  
+  uint8_t i;
+   
   // Precalc values
-  for(i = 0; i < 16; i++) {
-    if(status[i>>2]) {
-      r[i] = ledPos[period>>3] == i%4 ? 128:0;
-      g[i] = 0;
+  for(i = 0; i < WS2812_LED_COUNT; i++) {
+    ws2812_pixel_states *pix = &pixels->n[i];
+    
+    // No states -> no light
+    if(pix->states == 0) {
+      pix->current_pixel.r = 0;
+      pix->current_pixel.g = 0;
+      pix->current_pixel.b = 0;
     } else {
-      g[i] = ledPos[period>>3] == i%4 ? 128:0;
-      r[i] = 0;
+      if(pix->current_timer == 0) {
+        pix->current_pixel = pix->pixel[pix->current_state];
+      } else {
+        if(pix->current_timer == pix->state_time[pix->current_state]) 
+        {
+          pix->current_state++;
+          if(pix->current_state == pix->states) {
+            pix->current_state = 0;
+          }
+          pix->current_pixel = pix->pixel[pix->current_state];
+        } else {
+          float ratio;
+          ws2812_pixel orig_pix = pix->pixel[pix->current_state];
+          ws2812_pixel next_pix = pix->current_state+1 == pix->states ? pix->pixel[0] : pix->pixel[pix->current_state+1];
+          
+          if(pix->state_time[pix->current_state] != 0) {
+            ratio = (float)(pix->current_timer) / (float)(pix->state_time[pix->current_state]);
+            pix->current_pixel.r = (uint8_t)((int16_t)orig_pix.r+(int16_t)(ratio*((float)next_pix.r - (float)orig_pix.r)));
+            pix->current_pixel.g = (uint8_t)((int16_t)orig_pix.g+(int16_t)(ratio*((float)next_pix.g - (float)orig_pix.g)));
+            pix->current_pixel.b = (uint8_t)((int16_t)orig_pix.b+(int16_t)(ratio*((float)next_pix.b - (float)orig_pix.b)));
+          }
+        }
+      }
+      
+      pix->current_timer++;
     }
-    b[i] = 0;
   }
   
   // Disable interrupts while sending, timing critical step
   ets_intr_lock();
   ws2812_reset();
   for(i = 0; i < 16; i++) {
-    ws2812_send_pixel(r[i], g[i], b[i]);
+    ws2812_pixel_states *pix = &pixels->n[i];
+    ws2812_send_pixel(pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
   }
   ets_intr_unlock();
-  period ++;
-  if(period > 63) period = 0;
+
 }
 
 void ICACHE_FLASH_ATTR serverInit() {
@@ -163,11 +278,13 @@ void ICACHE_FLASH_ATTR serverInit() {
   
   espconn_regist_connectcb(&conn2, webserver_listen);
   espconn_accept(&conn2);
+  
+  pixels = (ws2812_pixel_array*)os_malloc(sizeof(ws2812_pixel_array));
+  os_memset(pixels,0, sizeof(ws2812_pixel_array));
 
   os_timer_disarm(&update_light_timer);
   os_timer_setfn(&update_light_timer, (os_timer_func_t *)update_light, NULL);
-  os_timer_arm(&update_light_timer, 20, 1);
+  os_timer_arm(&update_light_timer, 30, 1);
   
-  status[0] = status[1] = status[2] = status[3] = 0;
 
 }
