@@ -208,6 +208,18 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       os_sprintf(buffer, HTTP_HEADER("text/html")
                          "%s", os_strlen(message), message); 
       espconn_send(ptrespconn, buffer, os_strlen(buffer));
+    } else if(os_strstr(data, "cleartime/")) {
+      int i;
+      for(i = 0; i < WS2812_LED_COUNT; i++) {
+        ws2812_pixel_states *pix = &pixels->n[i];
+        pix->current_timer = 0;
+        pix->current_state = 0;
+      }
+      os_sprintf(message, "Timings cleared");
+      // Append the payload to the HTTP headers.
+      os_sprintf(buffer, HTTP_HEADER("text/html")
+                         "%s", os_strlen(message), message); 
+      espconn_send(ptrespconn, buffer, os_strlen(buffer));
     } else {
       os_sprintf(buffer, HTTP_HEADER("text/plain charset=\"utf-8\"")
                          "ok", 2);                        
