@@ -137,7 +137,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       uint8_t error = 1;
       
       led_idx--;
-      led_range--;
+      if(led_range) led_range--;
       
       // Verify that the led index exists
       if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {        
