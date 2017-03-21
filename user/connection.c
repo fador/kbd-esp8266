@@ -125,6 +125,12 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       datapos += 4;
       
       uint8_t led_idx = readValue(&datapos[offset], &offset);
+      uint8_t led_range = 0;
+      
+      if(datapos[offset] == '-') {
+        offset++;
+        led_range = readValue(&datapos[offset], &offset);        
+      }
       uint8_t led_state = 0;
       uint8_t led_r = 0;
       uint8_t led_g = 0;
@@ -133,14 +139,15 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       uint8_t error = 1;
       
       led_idx--;
+      led_range--;
       
       // Verify that the led index exists
-      if(led_idx < WS2812_LED_COUNT) {        
+      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {        
 
         if(datapos[offset] == '/') {
           offset++;
           led_state = readValue(&datapos[offset], &offset);
-          if(datapos[offset] == '/') {
+          if(led_state < MAX_STATES && datapos[offset] == '/') {
             offset++;
             led_r = readValue(&datapos[offset], &offset);
             if(datapos[offset] == '/') {
@@ -154,6 +161,13 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
                   led_delay = readValue(&datapos[offset], &offset);
                   if(led_delay != 0) {
                     setLedValue(led_idx,led_state, led_r,led_g,led_b,led_delay);
+                    if(led_range) {
+                      int i;
+                      for(i = led_idx+1; i <= led_range; i++) {
+                        setLedValue(i,led_state, led_r,led_g,led_b,led_delay);
+                      }
+                    }
+                    
                     error = 0;
                   }
                 }
@@ -185,7 +199,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       
       if(value < WS2812_LED_COUNT) {        
         
-        os_memset(pixels->n[value],0, sizeof(ws2812_pixel_states));
+        os_memset(&pixels->n[value],0, sizeof(ws2812_pixel_states));
         
         os_sprintf(message, "Value cleared");
       } else {
