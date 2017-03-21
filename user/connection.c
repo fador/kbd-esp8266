@@ -31,8 +31,6 @@ LOCAL ip_addr_t ip;
 LOCAL struct espconn conn2;
 LOCAL esp_tcp tcp1;
 
-#define MAX_STATES 4
-
 typedef struct {
   uint8_t r;
   uint8_t g;
