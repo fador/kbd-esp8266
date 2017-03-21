@@ -16,7 +16,5 @@
 */
 
 void ws2812_init();
-void ws2812_send_bit(uint8_t bit);
-void ws2812_send_byte(uint8_t byte);
 void ws2812_send_pixel(uint8_t r, uint8_t g, uint8_t b);
 void ws2812_reset();

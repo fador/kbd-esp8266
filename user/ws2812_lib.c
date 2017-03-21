@@ -37,7 +37,7 @@ void ws2812_init() {
 //   - For 1-bit the values are 0.8us 1 and 9.6us 0
 //   - The only actual timing that matters is the 0-bit  1-state timing, which here is improvised
 
-void ws2812_send_bit(uint8_t bit) {  
+static void ws2812_send_bit(uint8_t bit) {  
   
   if(bit) {
     GPIO2(1);
@@ -55,7 +55,7 @@ void ws2812_send_bit(uint8_t bit) {
 
 // Send one byte (or 8 bits) to the WS2812
 // Send MSB first
-void ws2812_send_byte(uint8_t byte) {  
+static void ws2812_send_byte(uint8_t byte) {  
   uint8_t i;
   for(i = 0; i < 8; i++) {
     ws2812_send_bit(byte&128);
