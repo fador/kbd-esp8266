@@ -72,7 +72,7 @@ ws2812_pixel_array* pixels;
 static uint8_t readValue(char* buf, uint8_t* in_offset) {
   uint8_t value = 0;
   uint8_t offset = 0;
-  while((uint8_t)buf[offset]-'0' < 10) {
+  while((uint8_t)(buf[offset]-'0') < 10) {
     value *= 10;
     value += buf[offset]-'0';
     offset++;
@@ -229,17 +229,18 @@ void ICACHE_FLASH_ATTR update_light(void)
       if(pix->current_timer == 0) {
         pix->current_pixel = pix->pixel[pix->current_state];
       } else {
-        if(pix->current_timer == pix->state_time[pix->current_state]) 
+        if(pix->current_timer > pix->state_time[pix->current_state]) 
         {
           pix->current_state++;
           if(pix->current_state == pix->states) {
             pix->current_state = 0;
           }
           pix->current_pixel = pix->pixel[pix->current_state];
+          pix->current_timer = 0;
         } else {
           float ratio;
           ws2812_pixel orig_pix = pix->pixel[pix->current_state];
-          ws2812_pixel next_pix = pix->current_state+1 == pix->states ? pix->pixel[0] : pix->pixel[pix->current_state+1];
+          ws2812_pixel next_pix = (pix->current_state+1 == pix->states) ? pix->pixel[0] : pix->pixel[pix->current_state+1];
           
           if(pix->state_time[pix->current_state] != 0) {
             ratio = (float)(pix->current_timer) / (float)(pix->state_time[pix->current_state]);
