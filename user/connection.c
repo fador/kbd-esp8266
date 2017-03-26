@@ -140,7 +140,7 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
       if(led_range) led_range--;
       
       // Verify that the led index exists
-      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {        
+      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {
 
         if(datapos[offset] == '/') {
           offset++;
@@ -190,16 +190,31 @@ LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned shor
     } else if(os_strstr(data, "clear/")) {   
       char* datapos = (char*)os_strstr(data, "clear/");
       datapos += 6;
+      uint8_t offset = 0;
+      char led_idx = readValue(&datapos[offset], &offset);
       
-      char value = datapos[0]-'0';
+      uint8_t led_range = 0;
       
-      value--;
+      if(datapos[offset] == '-') {
+        offset++;
+        led_range = readValue(&datapos[offset], &offset);        
+      }
       
-      if(value < WS2812_LED_COUNT) {        
+      led_idx--;
+      if(led_range) led_range--;
+      
+      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {
         
-        os_memset(&pixels->n[value],0, sizeof(ws2812_pixel_states));
+        os_memset(&pixels->n[led_idx],0, sizeof(ws2812_pixel_states));
         
-        os_sprintf(message, "Value cleared");
+        if(led_range) {
+          int i;
+          for(i = led_idx+1; i <= led_range; i++) {
+            os_memset(&pixels->n[i],0, sizeof(ws2812_pixel_states));
+          }
+        }
+        
+        os_sprintf(message, "Value(s) cleared");
       } else {
         os_sprintf(message, "Value out of range");
       }
