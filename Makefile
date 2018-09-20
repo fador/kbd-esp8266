@@ -9,13 +9,13 @@ BUILD_BASE	= build
 FW_BASE		= firmware
 
 # Base directory for the compiler
-XTENSA_TOOLS_ROOT = I:/projektit/ESP8266/Espressif_toolchain/xtensa-lx106-elf/bin
+XTENSA_TOOLS_ROOT = G:/projektit/ESP8266/Espressif_toolchain/xtensa-lx106-elf/bin
 
 # base directory of the ESP8266 SDK package, absolute
-SDK_BASE = I:/projektit/ESP8266/Espressif_toolchain/esp_iot_sdk_v2.0.0
+SDK_BASE = G:/projektit/ESP8266/Espressif_toolchain/esp_iot_sdk_v2.0.0
 
 # name for the target project
-TARGET		= echodevice
+TARGET		= kbd-esp8266
 
 # which modules (subdirectories) of the project to include in compiling
 MODULES		= driver user

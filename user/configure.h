@@ -20,11 +20,9 @@
 #define BUFFERLEN 1024
 
 // This affects the array sizes allocated in the program and also limits the input to this range
-#define WS2812_LED_COUNT 16
+#define WS2812_LED_COUNT 5
 
 // Maximum number of states for each LED
 #define MAX_STATES 4
 
-#define WLAN_CREDENTIALS 3
-extern char* WLAN_SSID_LIST[WLAN_CREDENTIALS];
-extern  char* WLAN_PASSWD_LIST[WLAN_CREDENTIALS];
+

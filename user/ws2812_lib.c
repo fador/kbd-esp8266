@@ -22,13 +22,14 @@
 #include <gpio.h>
 
 //From https://github.com/wdim0/esp8266_direct_gpio
-#define GPIO2_H         (GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, 1<<2))
-#define GPIO2_L         (GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, 1<<2))
-#define GPIO2(x)        ((x)?GPIO2_H:GPIO2_L)
+#define GPIO5_H         (GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, 1<<5))
+#define GPIO5_L         (GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, 1<<5))
+#define GPIO5(x)        /*GPIO_OUTPUT_SET(5, x)//*/((x)?GPIO5_H:GPIO5_L)
 
-void ws2812_init() {  
-  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);
-  GPIO_OUTPUT_SET(2, 0); //GPIO2 as output low
+void ws2812_init() { 
+  //PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO5); 
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO5_U, FUNC_GPIO5);
+  GPIO_OUTPUT_SET(5, 0); //GPIO5 as output low
 }
 
 // Send one bit to the WS2812
@@ -40,14 +41,14 @@ void ws2812_init() {
 static void ws2812_send_bit(uint8_t bit) {  
   
   if(bit) {
-    GPIO2(1);
+    GPIO5(1);
     os_delay_us(1); //1000ns
-    GPIO2(0);
+    GPIO5(0);
     os_delay_us(1); //1000ns
   }
   else {
-    GPIO2(1);
-    GPIO2(0);
+    GPIO5(1);
+    GPIO5(0);
     os_delay_us(1); //1000ns
   }
   
@@ -71,6 +72,6 @@ void ws2812_send_pixel(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void ws2812_reset() {
-  GPIO2(0);
+  GPIO5(0);
   os_delay_us(50); 
 }

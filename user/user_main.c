@@ -22,11 +22,12 @@
 #include <user_interface.h>
 #include <osapi.h>
 #include <espconn.h>
+#include <gpio.h>
 #include "connection.h"
 #include "io.h"
-#include "user_network.h"
 #include "configure.h"
 #include "ws2812_lib.h"
+#include "wlan_accesspoint.h"
 
 
 /******************************************************************************
@@ -81,23 +82,23 @@ void user_init(void)
   system_timer_reinit();
   uart_init(BIT_RATE_115200, BIT_RATE_115200);  
   
-  // Use first credentials from the list
-  network_update_credential(WLAN_SSID_LIST[0], WLAN_PASSWD_LIST[0]);
+  GPIO_DIS_OUTPUT(2); // Input
+  //PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);  
   
   // Init the lib here, so we can use it anywhere
   ws2812_init();
   
-  // Indicate that we have successfully booted, light all the leds
-  ets_intr_lock();
-  ws2812_reset();
-  for(i = 0; i < 16; i++) {
-    ws2812_send_pixel(10, 10, 10);
-  }
-  ets_intr_unlock();
-    
+   
   os_printf("\nStart network init SDK version:%s\n", system_get_sdk_version());
   
-  network_init();
+  serverInit();
+  
+  //wifi_set_opmode(SOFTAP_MODE);
+
+  // ESP8266 softAP set config.
+  //user_set_softap_config();
+    
   
   os_printf("\nReady\n");
 }

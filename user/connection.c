@@ -14,7 +14,6 @@
   PERFORMANCE OF THIS SOFTWARE.
 
 */
-
 #include <c_types.h>
 #include <user_interface.h>
 #include <espconn.h>
@@ -24,12 +23,26 @@
 #include "configure.h"
 #include "ws2812_lib.h"
 
-os_timer_t update_light_timer;
+// Read status
+#define GPIO02           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
+#define GPIO05           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
+
+LOCAL int cycles_down;
 
 LOCAL ip_addr_t ip;
+LOCAL bool output_enabled;
+
+os_timer_t update_light_timer;
 
 LOCAL struct espconn conn2;
 LOCAL esp_tcp tcp1;
+
+
+LOCAL struct espconn conn_udp;
+LOCAL esp_udp udp1;
+int brightness = 255;
+
+LOCAL bool output_update;
 
 typedef struct {
   uint8_t r;
@@ -51,35 +64,7 @@ typedef struct {
   ws2812_pixel_states n[WS2812_LED_COUNT]; 
 } ws2812_pixel_array;
 
-ws2812_pixel_array* pixels;
-
-
-#define HTTP_HEADER(CONTENT_TYPE) "HTTP/1.1 200 OK\r\n" \
-                                  "Content-Type: " CONTENT_TYPE "\r\n" \
-                                  "Cache-Control: no-cache, no-store, must-revalidate\r\n" \
-                                  "Pragma: no-cache\r\n" \
-                                  "Expires: 0\r\n" \
-                                 "Content-Length: %d\r\n" \
-                                 "Server: Unspecified, UPnP/1.0, Unspecified\r\n" \
-                                 "connection: close\r\n" \
-                                 "Last-Modified: Sat, 01 Jan 2000 00:00:00 GMT\r\n" \
-                                 "\r\n"
-                                 
-                            
-                            
-static uint8_t readValue(char* buf, uint8_t* in_offset) {
-  uint8_t value = 0;
-  uint8_t offset = 0;
-  while((uint8_t)(buf[offset]-'0') < 10) {
-    value *= 10;
-    value += buf[offset]-'0';
-    offset++;
-  }
-  
-  *in_offset += offset;
-  
-  return value;
-}
+static ws2812_pixel_array* pixels;
 
 static uint8_t setLedValue(uint8_t idx, uint8_t state, uint8_t r, uint8_t g, uint8_t b, uint8_t delay)
 {
@@ -100,156 +85,6 @@ static uint8_t setLedValue(uint8_t idx, uint8_t state, uint8_t r, uint8_t g, uin
   return 1;
 }
                             
-
-LOCAL void ICACHE_FLASH_ATTR webserver_recv(void *arg, char *data, unsigned short length)
-{
-    struct espconn *ptrespconn = arg;
-    char buffer[BUFFERLEN];
-    char message[100];
-    // Return settings when requesting setup.xml
-    if(os_strstr(data,"set.php")) {
-      
-      os_sprintf(message, "Test response");
-      
-      // Append the payload to the HTTP headers.
-      os_sprintf(buffer, HTTP_HEADER("text/html")
-                         "%s", os_strlen(message), message); 
-                  
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-      return;    
-    } else if(os_strstr(data, "set/")) {   
-      char* datapos = (char*)os_strstr(data, "set/");
-      uint8_t offset = 0;
-      datapos += 4;
-      
-      uint8_t led_idx = readValue(&datapos[offset], &offset);
-      uint8_t led_range = 0;
-      
-      if(datapos[offset] == '-') {
-        offset++;
-        led_range = readValue(&datapos[offset], &offset);        
-      }
-      uint8_t led_state = 0;
-      uint8_t led_r = 0;
-      uint8_t led_g = 0;
-      uint8_t led_b = 0;
-      uint8_t led_delay = 0;
-      uint8_t error = 1;
-      
-      led_idx--;
-      if(led_range) led_range--;
-      
-      // Verify that the led index exists
-      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {
-
-        if(datapos[offset] == '/') {
-          offset++;
-          led_state = readValue(&datapos[offset], &offset);
-          if(led_state < MAX_STATES && datapos[offset] == '/') {
-            offset++;
-            led_r = readValue(&datapos[offset], &offset);
-            if(datapos[offset] == '/') {
-              offset++;
-              led_g = readValue(&datapos[offset], &offset);
-              if(datapos[offset] == '/') {
-                offset++;
-                led_b = readValue(&datapos[offset], &offset);
-                 if(datapos[offset] == '/') {
-                  offset++;
-                  led_delay = readValue(&datapos[offset], &offset);
-                  if(led_delay != 0) {
-                    setLedValue(led_idx,led_state, led_r,led_g,led_b,led_delay);
-                    if(led_range) {
-                      int i;
-                      for(i = led_idx+1; i <= led_range; i++) {
-                        setLedValue(i,led_state, led_r,led_g,led_b,led_delay);
-                      }
-                    }
-                    
-                    error = 0;
-                  }
-                }
-              }
-            }
-          }
-        }
-        if(error) {
-          os_sprintf(message, "Expecting /set/<id>/<state>/<r>/<g>/<b>/<delay>");
-        } else {
-          os_sprintf(message, "Value set ID: %d state %d R %d G %d B %d Delay %d", led_idx, led_state, led_r, led_g, led_b, led_delay);
-        }
-      } else {
-        os_sprintf(message, "ID value out of range");
-      }
-      
-      // Append the payload to the HTTP headers.
-      os_sprintf(buffer, HTTP_HEADER("text/html")
-                         "%s", os_strlen(message), message); 
-                  
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-    } else if(os_strstr(data, "clear/")) {   
-      char* datapos = (char*)os_strstr(data, "clear/");
-      datapos += 6;
-      uint8_t offset = 0;
-      char led_idx = readValue(&datapos[offset], &offset);
-      
-      uint8_t led_range = 0;
-      
-      if(datapos[offset] == '-') {
-        offset++;
-        led_range = readValue(&datapos[offset], &offset);        
-      }
-      
-      led_idx--;
-      if(led_range) led_range--;
-      
-      if(led_idx < WS2812_LED_COUNT && led_range < WS2812_LED_COUNT) {
-        
-        os_memset(&pixels->n[led_idx],0, sizeof(ws2812_pixel_states));
-        
-        if(led_range) {
-          int i;
-          for(i = led_idx+1; i <= led_range; i++) {
-            os_memset(&pixels->n[i],0, sizeof(ws2812_pixel_states));
-          }
-        }
-        
-        os_sprintf(message, "Value(s) cleared");
-      } else {
-        os_sprintf(message, "Value out of range");
-      }
-      
-      // Append the payload to the HTTP headers.
-      os_sprintf(buffer, HTTP_HEADER("text/html")
-                         "%s", os_strlen(message), message); 
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-    } else if(os_strstr(data, "cleartime/")) {
-      int i;
-      for(i = 0; i < WS2812_LED_COUNT; i++) {
-        ws2812_pixel_states *pix = &pixels->n[i];
-        pix->current_timer = 0;
-        pix->current_state = 0;
-      }
-      os_sprintf(message, "Timings cleared");
-      // Append the payload to the HTTP headers.
-      os_sprintf(buffer, HTTP_HEADER("text/html")
-                         "%s", os_strlen(message), message); 
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-    } else {
-      os_sprintf(buffer, HTTP_HEADER("text/plain charset=\"utf-8\"")
-                         "ok", 2);                        
-      espconn_send(ptrespconn, buffer, os_strlen(buffer));
-    }
-    
-}
-
-LOCAL void ICACHE_FLASH_ATTR webserver_listen(void *arg)
-{
-    struct espconn *pesp_conn = arg;
-
-    espconn_regist_recvcb(pesp_conn, webserver_recv);
-}
-
 
 void ICACHE_FLASH_ATTR update_light(void)
 {
@@ -294,37 +129,84 @@ void ICACHE_FLASH_ATTR update_light(void)
     }
   }
   
-  // Disable interrupts while sending, timing critical step
-  ets_intr_lock();
-  ws2812_reset();
-  for(i = 0; i < 16; i++) {
-    ws2812_pixel_states *pix = &pixels->n[i];
-    ws2812_send_pixel(pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
+    
+  
+  bool switchStatus = GPIO02;
+  bool change_output = false;
+  
+  if(cycles_down > 3) {
+    //output_enabled = !output_enabled;
+    change_output = true;
   }
-  ets_intr_unlock();
+  
+  if(output_enabled && cycles_down > 20)
+  {
+    change_output = false;
+    brightness = (brightness+4) % 255;
+    output_update = true;
+  }
+  
+  
+  /*
+  if(switchStatus) {
+    cycles_down = 0;
+    if(change_output) {
+      output_enabled = !output_enabled;
+      output_update = true;
+    }
+  } else {
+    cycles_down++;
+  }
+  */
+  
+  //if(output_update) {
+    /*
+    for(i = 0; i < WS2812_LED_COUNT; i++) {
+      setLedValue(i, 0, brightness, brightness, (brightness-(brightness>>3))<0?0:brightness-(brightness>>3), 10);
+    }*/
+    
+  // Disable interrupts while sending, timing critical step
+  
+    system_soft_wdt_stop();
+    ets_intr_lock();
+    ws2812_reset();
+    for(i = 0; i < WS2812_LED_COUNT; i++) {
+      ws2812_pixel_states *pix = &pixels->n[i];
+      /*if(output_enabled) */ws2812_send_pixel(pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
+      //else ws2812_send_pixel(0, 0, 0);
+    }
+    ets_intr_unlock();
+    system_soft_wdt_restart();
+  //}
+
+  output_update = false;
 
 }
 
+
 void ICACHE_FLASH_ATTR serverInit() {
   
-  os_printf("Free heap: %d\n", system_get_free_heap_size());
+  int i; 
   
-  
-  // Set up the TCP server
-  tcp1.local_port = 8000;
-  conn2.type = ESPCONN_TCP;
-  conn2.state = ESPCONN_NONE;
-  conn2.proto.tcp = &tcp1;
-  
-  espconn_regist_connectcb(&conn2, webserver_listen);
-  espconn_accept(&conn2);
+  output_enabled = true;
+  output_update = true;
   
   pixels = (ws2812_pixel_array*)os_malloc(sizeof(ws2812_pixel_array));
-  os_memset(pixels,0, sizeof(ws2812_pixel_array));
-
+  os_memset(pixels,0, sizeof(ws2812_pixel_array)); 
+  
   os_timer_disarm(&update_light_timer);
   os_timer_setfn(&update_light_timer, (os_timer_func_t *)update_light, NULL);
   os_timer_arm(&update_light_timer, 30, 1);
-  
 
+  setLedValue(0, 0, 120, 0, 0, 100);
+  setLedValue(1, 0, 0, 120, 0, 100);
+  setLedValue(2, 0, 0, 0, 120, 100);
+  setLedValue(3, 0, 120, 120, 0, 100);
+  setLedValue(4, 0, 0, 120, 120, 100);
+  
+  setLedValue(0, 1, 0, 0, 0, 100);
+  setLedValue(1, 1, 0, 0, 0, 100);
+  setLedValue(2, 1, 0, 0, 0, 100);
+  setLedValue(3, 1, 0, 0, 0, 100);
+  setLedValue(4, 1, 0, 0, 0, 100);
 }
