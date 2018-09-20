@@ -24,7 +24,7 @@
 //From https://github.com/wdim0/esp8266_direct_gpio
 #define GPIO5_H         (GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, 1<<5))
 #define GPIO5_L         (GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, 1<<5))
-#define GPIO5(x)        /*GPIO_OUTPUT_SET(5, x)//*/((x)?GPIO5_H:GPIO5_L)
+#define GPIO5(x)        ((x)?GPIO5_H:GPIO5_L)
 
 void ws2812_init() { 
   //PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO5); 

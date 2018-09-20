@@ -82,9 +82,18 @@ void user_init(void)
   system_timer_reinit();
   uart_init(BIT_RATE_115200, BIT_RATE_115200);  
   
+  #define PERIPHS_IO_MUX_GPIO12_U          (PERIPHS_IO_MUX + 0x4)
+  #define PERIPHS_IO_MUX_GPIO13_U          (PERIPHS_IO_MUX + 0x8)
+  #define PERIPHS_IO_MUX_GPIO14_U          (PERIPHS_IO_MUX + 0x0C)
+  
   GPIO_DIS_OUTPUT(2); // Input
+  GPIO_DIS_OUTPUT(12); // Input
+  GPIO_DIS_OUTPUT(14); // Input
+  PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO13_U);
+  PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO14_U);
   //PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO2_U);
-  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2);  
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO13_U, FUNC_GPIO13);
+  PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO14_U, FUNC_GPIO14);
   
   // Init the lib here, so we can use it anywhere
   ws2812_init();

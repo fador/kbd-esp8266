@@ -23,11 +23,19 @@
 #include "configure.h"
 #include "ws2812_lib.h"
 
+
+
 // Read status
 #define GPIO02           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
+#define GPIO14           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(14)))!=0)
+#define GPIO13           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(13)))!=0)
+#define GPIO12           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(12)))!=0)
 #define GPIO05           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
 
 LOCAL int cycles_down;
+
+LOCAL int cycles_down_led[5];
+LOCAL bool led_pressed[5];
 
 LOCAL ip_addr_t ip;
 LOCAL bool output_enabled;
@@ -41,6 +49,19 @@ LOCAL esp_tcp tcp1;
 LOCAL struct espconn conn_udp;
 LOCAL esp_udp udp1;
 int brightness = 255;
+LOCAL uint32_t pseudorandom = 0x31466fa4;
+
+
+uint32_t ICACHE_FLASH_ATTR esp_random() 
+{
+	/* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
+	uint32_t x = pseudorandom;
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	pseudorandom = x;
+	return x;
+}
 
 LOCAL bool output_update;
 
@@ -134,30 +155,29 @@ void ICACHE_FLASH_ATTR update_light(void)
   bool switchStatus = GPIO02;
   bool change_output = false;
   
-  if(cycles_down > 3) {
-    //output_enabled = !output_enabled;
-    change_output = true;
+  bool led0 = GPIO14;
+  bool led1 = GPIO13;
+  
+  if(!led1) { cycles_down_led[1]++; } else {
+    led_pressed[1] = false;
+    cycles_down_led[1] = 0;
+  }
+  if(!led0) { cycles_down_led[0]++; } else {
+    led_pressed[0] = false;
+    cycles_down_led[0] = 0;
   }
   
-  if(output_enabled && cycles_down > 20)
-  {
-    change_output = false;
-    brightness = (brightness+4) % 255;
-    output_update = true;
+  if(cycles_down_led[1] > 3 && !led_pressed[1])  {
+    led_pressed[1] = true;
+    setLedValue(1, 0, esp_random()&0x7f, esp_random()&0x7f, esp_random()&0x7f, 20);
   }
   
-  
-  /*
-  if(switchStatus) {
-    cycles_down = 0;
-    if(change_output) {
-      output_enabled = !output_enabled;
-      output_update = true;
-    }
-  } else {
-    cycles_down++;
+  if(cycles_down_led[0] > 3 && !led_pressed[0])  {
+    led_pressed[0] = true;
+    setLedValue(0, 0, esp_random()&0x7f, esp_random()&0x7f, esp_random()&0x7f, 20);
   }
-  */
+  
+
   
   //if(output_update) {
     /*
@@ -191,6 +211,11 @@ void ICACHE_FLASH_ATTR serverInit() {
   output_enabled = true;
   output_update = true;
   
+  cycles_down_led[1] = 0;
+  cycles_down_led[0] = 0;
+  led_pressed[1] = false;
+  led_pressed[0] = false;
+  
   pixels = (ws2812_pixel_array*)os_malloc(sizeof(ws2812_pixel_array));
   os_memset(pixels,0, sizeof(ws2812_pixel_array)); 
   
@@ -198,15 +223,15 @@ void ICACHE_FLASH_ATTR serverInit() {
   os_timer_setfn(&update_light_timer, (os_timer_func_t *)update_light, NULL);
   os_timer_arm(&update_light_timer, 30, 1);
 
-  setLedValue(0, 0, 120, 0, 0, 100);
-  setLedValue(1, 0, 0, 120, 0, 100);
-  setLedValue(2, 0, 0, 0, 120, 100);
-  setLedValue(3, 0, 120, 120, 0, 100);
-  setLedValue(4, 0, 0, 120, 120, 100);
+  setLedValue(0, 0, 120, 0, 0, 20);
+  setLedValue(1, 0, 0, 120, 0, 20);
+  setLedValue(2, 0, 0, 0, 120, 20);
+  setLedValue(3, 0, 120, 120, 0, 20);
+  setLedValue(4, 0, 0, 120, 120, 20);
   
-  setLedValue(0, 1, 0, 0, 0, 100);
-  setLedValue(1, 1, 0, 0, 0, 100);
-  setLedValue(2, 1, 0, 0, 0, 100);
-  setLedValue(3, 1, 0, 0, 0, 100);
-  setLedValue(4, 1, 0, 0, 0, 100);
+  setLedValue(0, 1, 0, 0, 0, 20);
+  setLedValue(1, 1, 0, 0, 0, 20);
+  setLedValue(2, 1, 0, 0, 0, 20);
+  setLedValue(3, 1, 0, 0, 0, 20);
+  setLedValue(4, 1, 0, 0, 0, 20);
 }
