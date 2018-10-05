@@ -22,11 +22,6 @@
 #include <gpio.h>
 #include "ws2812_lib.h"
 
-#define GPIO_SET_OUTPUT_PERIPH(x) PERIPHS_IO_MUX_GPIO ## x ## _U
-#define GPIO_SET_OUTPUT_FUNC(x) FUNC_GPIO ## x
-
-#define GPIO_SET_OUTPUT(x) PIN_FUNC_SELECT(GPIO_SET_OUTPUT_PERIPH(x), GPIO_SET_OUTPUT_FUNC(x) )
-
 void ws2812_init(uint8_t port) { 
   //PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO5); 
   GPIO_SET_OUTPUT(15);

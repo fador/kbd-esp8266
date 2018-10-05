@@ -38,6 +38,13 @@
   #define PERIPHS_IO_MUX_GPIO15_U          (PERIPHS_IO_MUX + 0x10)
 #endif
 
+// Macro expand functions
+#define GPIO_SET_OUTPUT_PERIPH(x) PERIPHS_IO_MUX_GPIO ## x ## _U
+#define GPIO_SET_OUTPUT_FUNC(x) FUNC_GPIO ## x
+
+#define GPIO_SET_OUTPUT(x) PIN_FUNC_SELECT(GPIO_SET_OUTPUT_PERIPH(x), GPIO_SET_OUTPUT_FUNC(x) )
+
+
 
 void ws2812_init(uint8_t port);
 void ws2812_send_pixel(uint8_t port, uint8_t r, uint8_t g, uint8_t b);

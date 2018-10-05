@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2016, Marko Viitanen (Fador)
+  Copyright (c) 2018, Marko Viitanen (Fador)
 
   Permission to use, copy, modify, and/or distribute this software for any purpose 
   with or without fee is hereby granted, provided that the above copyright notice 
@@ -19,6 +19,7 @@
 #include <espconn.h>
 #include <mem.h>
 #include <osapi.h>
+#include <gpio.h>
 #include "connection.h"
 #include "configure.h"
 #include "ws2812_lib.h"
@@ -34,8 +35,8 @@
 
 LOCAL int cycles_down;
 
-LOCAL int cycles_down_led[5];
-LOCAL bool led_pressed[5];
+LOCAL int cycles_down_led[8];
+LOCAL bool led_pressed[8];
 
 LOCAL ip_addr_t ip;
 LOCAL bool output_enabled;
@@ -49,7 +50,18 @@ LOCAL esp_tcp tcp1;
 LOCAL struct espconn conn_udp;
 LOCAL esp_udp udp1;
 int brightness = 255;
+
+// Some random value
 LOCAL uint32_t pseudorandom = 0x31466fa4;
+
+
+LOCAL uint8_t random_r[] = { 120, 0, 0, 120, 0, 120, 120, 0 };
+LOCAL uint8_t random_g[] = { 0, 120, 0, 120, 120, 0, 60, 60 };
+LOCAL uint8_t random_b[] = { 0, 0, 120, 0, 120, 120, 0, 120 };
+
+
+// Control keyboard Mux with GPIO 14,12 and 2
+#define SET_KEY_INPUT(x) GPIO_OUTPUT_SET(14, (x)&1); GPIO_OUTPUT_SET(12, ((x)>>1)&1); GPIO_OUTPUT_SET(2, ((x)>>2)&1);
 
 
 uint32_t ICACHE_FLASH_ATTR esp_random() 
@@ -152,54 +164,36 @@ void ICACHE_FLASH_ATTR update_light(void)
   
     
   
-  bool switchStatus = GPIO02;
-  bool change_output = false;
-  
-  bool led1 = false;//GPIO14;
-  bool led0 = GPIO13;
-  
-  if(!led1) { cycles_down_led[1]++; } else {
-    led_pressed[1] = false;
-    cycles_down_led[1] = 0;
-  }
-  if(!led0) { cycles_down_led[0]++; } else {
-    led_pressed[0] = false;
-    cycles_down_led[0] = 0;
-  }
-  
-  if(cycles_down_led[1] > 3 && !led_pressed[1])  {
-    led_pressed[1] = true;
-    setLedValue(1, 0, esp_random()&0x7f, esp_random()&0x7f, esp_random()&0x7f, 20);
-  }
-  
-  if(cycles_down_led[0] > 3 && !led_pressed[0])  {
-    led_pressed[0] = true;
-    setLedValue(0, 0, esp_random()&0x7f, esp_random()&0x7f, esp_random()&0x7f, 20);
-  }
-  
-
-  
-  //if(output_update) {
-    /*
-    for(i = 0; i < WS2812_LED_COUNT; i++) {
-      setLedValue(i, 0, brightness, brightness, (brightness-(brightness>>3))<0?0:brightness-(brightness>>3), 10);
-    }*/
+  for(i = 0; i < 8; i++) {
+    SET_KEY_INPUT(i);
+    os_delay_us(1); //1000ns
+    uint8_t key_input = GPIO13;
     
-  // Disable interrupts while sending, timing critical step
-  
-    system_soft_wdt_stop();
-    ets_intr_lock();
-    ws2812_reset(DEFAULT_LED_PORT);
-    for(i = 0; i < WS2812_LED_COUNT; i++) {
-      ws2812_pixel_states *pix = &pixels->n[i];
-      /*if(output_enabled) */ws2812_send_pixel(DEFAULT_LED_PORT, pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
-      //else ws2812_send_pixel(0, 0, 0);
+    if(!key_input) {
+      cycles_down_led[i]++;
+    } else {
+      led_pressed[i] = false;
+      cycles_down_led[i] = 0;
     }
-    ets_intr_unlock();
-    system_soft_wdt_restart();
-  //}
 
-  output_update = false;
+    if(cycles_down_led[i] > 1 && !led_pressed[i])  {
+      led_pressed[i] = true;
+      int val = esp_random()&0xf;
+      setLedValue(i, 0, random_r[val], random_g[val], random_b[val], 20);
+    }
+  }
+
+
+  // Disable interrupts while sending, timing critical step  
+  system_soft_wdt_stop();
+  ets_intr_lock();
+  ws2812_reset(DEFAULT_LED_PORT);
+  for(i = 0; i < WS2812_LED_COUNT; i++) {
+    ws2812_pixel_states *pix = &pixels->n[i];
+    ws2812_send_pixel(DEFAULT_LED_PORT, pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
+  }
+  ets_intr_unlock();
+  system_soft_wdt_restart();
 
 }
 
@@ -211,10 +205,10 @@ void ICACHE_FLASH_ATTR serverInit() {
   output_enabled = true;
   output_update = true;
   
-  cycles_down_led[1] = 0;
-  cycles_down_led[0] = 0;
-  led_pressed[1] = false;
-  led_pressed[0] = false;
+  for(i = 0; i < 8; i++) {
+    cycles_down_led[i] = 0;
+    led_pressed[i] = false;
+  }
   
   pixels = (ws2812_pixel_array*)os_malloc(sizeof(ws2812_pixel_array));
   os_memset(pixels,0, sizeof(ws2812_pixel_array)); 
