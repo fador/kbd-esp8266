@@ -24,13 +24,13 @@
 #include "ws2812_lib.h"
 
 
-
+#define GPIO_READ(x)           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT((x))))!=0)
 // Read status
-#define GPIO02           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
-#define GPIO14           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(14)))!=0)
-#define GPIO13           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(13)))!=0)
-#define GPIO12           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(12)))!=0)
-#define GPIO05           ((GPIO_REG_READ(GPIO_IN_ADDRESS)&(BIT(2)))!=0)
+#define GPIO02           GPIO_READ(2)
+#define GPIO14           GPIO_READ(14)
+#define GPIO13           GPIO_READ(13)
+#define GPIO12           GPIO_READ(12)
+#define GPIO05           GPIO_READ(5)
 
 LOCAL int cycles_down;
 
@@ -155,8 +155,8 @@ void ICACHE_FLASH_ATTR update_light(void)
   bool switchStatus = GPIO02;
   bool change_output = false;
   
-  bool led0 = GPIO14;
-  bool led1 = GPIO13;
+  bool led1 = false;//GPIO14;
+  bool led0 = GPIO13;
   
   if(!led1) { cycles_down_led[1]++; } else {
     led_pressed[1] = false;
@@ -189,10 +189,10 @@ void ICACHE_FLASH_ATTR update_light(void)
   
     system_soft_wdt_stop();
     ets_intr_lock();
-    ws2812_reset();
+    ws2812_reset(DEFAULT_LED_PORT);
     for(i = 0; i < WS2812_LED_COUNT; i++) {
       ws2812_pixel_states *pix = &pixels->n[i];
-      /*if(output_enabled) */ws2812_send_pixel(pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
+      /*if(output_enabled) */ws2812_send_pixel(DEFAULT_LED_PORT, pix->current_pixel.r, pix->current_pixel.g, pix->current_pixel.b);
       //else ws2812_send_pixel(0, 0, 0);
     }
     ets_intr_unlock();
@@ -228,10 +228,16 @@ void ICACHE_FLASH_ATTR serverInit() {
   setLedValue(2, 0, 0, 0, 120, 20);
   setLedValue(3, 0, 120, 120, 0, 20);
   setLedValue(4, 0, 0, 120, 120, 20);
+  setLedValue(5, 0, 120, 0, 120, 20);
+  setLedValue(6, 0, 120, 60, 0, 20);
+  setLedValue(7, 0, 0, 60, 120, 20);
   
   setLedValue(0, 1, 0, 0, 0, 20);
   setLedValue(1, 1, 0, 0, 0, 20);
   setLedValue(2, 1, 0, 0, 0, 20);
   setLedValue(3, 1, 0, 0, 0, 20);
   setLedValue(4, 1, 0, 0, 0, 20);
+  setLedValue(5, 1, 0, 0, 0, 20);
+  setLedValue(6, 1, 0, 0, 0, 20);
+  setLedValue(7, 1, 0, 0, 0, 20);
 }

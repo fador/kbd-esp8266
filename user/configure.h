@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2017, Marko Viitanen (Fador)
+  Copyright (c) 2018, Marko Viitanen (Fador)
 
   Permission to use, copy, modify, and/or distribute this software for any purpose 
   with or without fee is hereby granted, provided that the above copyright notice 
@@ -20,7 +20,7 @@
 #define BUFFERLEN 1024
 
 // This affects the array sizes allocated in the program and also limits the input to this range
-#define WS2812_LED_COUNT 5
+#define WS2812_LED_COUNT 8
 
 // Maximum number of states for each LED
 #define MAX_STATES 4
